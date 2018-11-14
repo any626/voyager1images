@@ -19,8 +19,8 @@ rate, data = scipy.io.wavfile.read('384kHzStereo.wav')
 # sample_size = sound.sample_width
 # get channels
 # channels = sound.channels
-print(rate) #384000
-print(len(data)) #181960704
+print("Sample Rate: %s" % rate) #384000
+# print(len(data)) #181960704
 
 # 384000 / 120 = 3200
 
@@ -34,49 +34,60 @@ print(len(data)) #181960704
 
 # 11845632 * 7.04024183647 * 10^(-10) = 0.00833961139 =~8.3
 
-channelOne = -1*data[:, 0] # len 41,794,099
-channelTwo = data[:, 1]
+# multiple by -1 as images seen to be negatives
+channelOne  = -1*data[:, 0]
+channelTwo  = -1*data[:, 1]
 image_width = 512
+scan_width  = 3200
 
-# print(channelOne[6000352: 6000358])
-# print(np.sum(channelOne[6000352: 6000358]))
-
-# print(channelOne[6003545: 6003551])
-# print(np.sum(channelOne[6003545: 6003551]))
-
-# 6003541 - 6000355 = 3186
-# 6003545 - 6000352 = 3193
-#5875
-scan_width = 3200 - 3
-offset = (scan_width*image_width*3 + scan_width * 350 - 500) * 1# int(scan_width*512*2)
-offset = 6000000
-offset = 6000352
-# offset = scan_width*image_width*3 + scan_width*300# int(scan_width*512*2)
+start = 6000352 #start of images
 num_scans = image_width
-image_data = np.zeros((scan_width, num_scans))
-# image_data = np.zeros((scan_width, 400))
-# print(image_data.shape)
-for scan in range(num_scans):
+image_data = np.zeros((3200, num_scans))
 
-    # if scan %2 == 1 :
-    #     image_data[:,scan] = np.flip([0.5*channelOne[offset:offset+scan_width]]).T[:, 0];
-    # else:
-    
-    image_data[:,scan] = np.array([channelOne[offset:offset+scan_width]]).T[:, 0];
-    offset += scan_width
+#a few image starts
+start_of_image = 6000352
+start_of_image = 8309753
+start_of_image = 10664534
+# start_of_image = 19607588
+# start_of_image = 90737287
+# start_of_image = 117466208
 
-# image_data = np.array(image_data)
-# print(image_data.shape)
-# print(image_data[0])
-# x = np.array(channelOne)
-# x.reshape((-1, 512))
+test_data = channelOne[start_of_image:]
+test_image = np.zeros((1, len(test_data)))
+start_of_row=[0]
+
+i = 0 + 3000
+while i <= 1658400:
+    # if i %(3300 ) >= (3100 ) and i % (3100) <= (300) and i >= 6: # and i - start_of_row[-1] >= 3000:
+    if all(item >= 0 for item in test_data[i-2:i+1]) and all(item <= 0 for item in test_data[i-5:i-2]):
+        i = i-5
+        # shift += abs(3200- (i - start_of_row[-1]))
+        start_of_row.append(i)
+        i += 3000
+        continue
+    i+=1
+
+start_of_row = start_of_row[:image_width]
+
+for i in range(len(start_of_row)-1):
+    start = start_of_row[i]
+    length_diff = scan_width - (start_of_row[i+1] - start)
+    if length_diff > 0: #shorter than 3200 pixels, repeat
+        subset = test_data[start:start_of_row[i+1]]
+        for x in range(length_diff):
+            subset = np.append(subset, subset[-x])
+    else: #longer, trim
+        subset = test_data[start:start+scan_width]
+
+    # print(subset.shape)
+    image_data[:,i] = np.array([subset]).T[:,0]
 
 # print(image_data)
 # image_data = image_data / np.linalg.norm(image_data)
 # max_v = np.max(np.abs(image_data))
 
-image_data /= np.average(np.abs(image_data))
-image_data *= (255.0/image_data.max())
+# image_data /= np.average(np.abs(image_data))
+# image_data *= (255.0/image_data.max())
 
 plt.figure(1)
 plt.imshow(image_data, aspect="auto", cmap = plt.cm.gray)
